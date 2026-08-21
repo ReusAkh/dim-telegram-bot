@@ -1,13 +1,13 @@
 import requests
 
-DIM_URL = "https://exidmet.dim.gov.az/dqq/ImtQeyd
+DIM_URL = "https://exidmet.dim.gov.az/dqq/ImtQeyd"
 
 response = requests.get(
-  DIM_URL,
-  timeout=30
-  headers={
-      "User-Agent": "Mozilla/5.0"
- }
+    DIM_URL,
+    timeout=30,
+    headers={
+        "User-Agent": "Mozilla/5.0"
+    }
 )
 
 print("Status:", response.status_code)
