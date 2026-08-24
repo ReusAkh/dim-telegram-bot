@@ -3,7 +3,7 @@ name: DİM Monitor
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "2,7,12,17,22,27,32,37,42,47,52,57 * * * *"
 
 permissions:
   contents: read
@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Lazım olan kitabxanaları quraşdır
+      - name: Kitabxanaları quraşdır
         run: pip install -r requirements.txt
 
       - name: DİM monitorunu işə sal
