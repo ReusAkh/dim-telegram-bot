@@ -51,15 +51,10 @@ def category_keyboard():
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (
-        "Salam! 👋\n\n"
-        "DİM imtahanlarında hansı kateqoriyanı izləmək istəyirsiniz?\n\n"
-        "Aşağıdan seçim edin:"
-    )
-
     await update.message.reply_text(
-        text,
-        reply_markup=category_keyboard()
+        "Salam! 👋\n\n"
+        "İzləmək istədiyiniz kateqoriyanı seçin:",
+        reply_markup=category_keyboard(),
     )
 
 
@@ -68,29 +63,31 @@ async def choose_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     category = query.data.replace("cat_", "")
-
     user_id = str(query.from_user.id)
 
     settings = load_settings()
     settings[user_id] = category
     save_settings(settings)
 
-    category_name = "Bütün kateqoriyalar" if category == "ALL" else category
+    category_name = (
+        "Bütün kateqoriyalar"
+        if category == "ALL"
+        else category
+    )
 
     keyboard = [
         [
             InlineKeyboardButton(
                 "⚙️ Seçimi dəyiş",
-                callback_data="change_category"
+                callback_data="change_category",
             )
         ]
     ]
 
     await query.edit_message_text(
         f"✅ Seçiminiz yadda saxlanıldı.\n\n"
-        f"📌 İzlənən kateqoriya: {category_name}\n\n"
-        f"Boş yer yarandıqda sizə xəbər veriləcək.",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        f"📌 İzlənən kateqoriya: {category_name}",
+        reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
 
@@ -100,7 +97,7 @@ async def change_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_text(
         "Yeni kateqoriyanı seçin:",
-        reply_markup=category_keyboard()
+        reply_markup=category_keyboard(),
     )
 
 
@@ -108,16 +105,18 @@ def main():
     application = Application.builder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
+
     application.add_handler(
         CallbackQueryHandler(
             choose_category,
-            pattern=r"^cat_"
+            pattern=r"^cat_",
         )
     )
+
     application.add_handler(
         CallbackQueryHandler(
             change_category,
-            pattern=r"^change_category$"
+            pattern=r"^change_category$",
         )
     )
 
