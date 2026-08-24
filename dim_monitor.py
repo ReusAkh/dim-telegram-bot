@@ -81,28 +81,23 @@ def category_matches(selected_category, groups):
 
 def main():
 
-    # 1. Telegram istifadəçisinin seçimini oxu
+    # Telegram-da seçilmiş kateqoriyanı GitHub-dan oxuyuruq
     settings = load_settings()
 
     if not settings:
         print("Heç bir Telegram kateqoriyası seçilməyib.")
         return
 
-    # Hazırda TELEGRAM_CHAT_ID istifadə edirik
-    if not settings:
-    print("Heç bir Telegram kateqoriyası seçilməyib.")
-    return
+    # Hazırda bir istifadəçi izlənilir.
+    # user_settings.json faylındakı ilk seçimi götürürük.
+    user_id, selected_category = next(
+        iter(settings.items())
+    )
 
-# Hazırda yalnız bir istifadəçi izlənir.
-# settings faylındakı ilk istifadəçinin seçimini götürürük.
-user_id, selected_category = next(
-    iter(settings.items())
-)
+    print("Telegram istifadəçi ID:", user_id)
+    print("Seçilmiş kateqoriya:", selected_category)
 
-print("Telegram istifadəçi ID:", user_id)
-print("Seçilmiş kateqoriya:", selected_category)
-
-    # 2. DİM səhifəsini götür
+    # DİM səhifəsini yükləyirik
     response = requests.get(
         DIM_URL,
         timeout=30,
@@ -116,7 +111,7 @@ print("Seçilmiş kateqoriya:", selected_category)
 
     response.raise_for_status()
 
-    # 3. HTML-i oxu
+    # HTML-i oxuyuruq
     soup = BeautifulSoup(
         response.text,
         "html.parser"
@@ -131,7 +126,7 @@ print("Seçilmiş kateqoriya:", selected_category)
         len(rows)
     )
 
-    # 4. İmtahanları yoxla
+    # Bütün imtahanları yoxlayırıq
     for row in rows:
 
         cells = row.find_all("td")
@@ -184,7 +179,6 @@ print("Seçilmiş kateqoriya:", selected_category)
             strip=True
         )
 
-        # 5. Boş yer sayını rəqəmə çevir
         try:
             available = int(
                 available_text
@@ -192,7 +186,7 @@ print("Seçilmiş kateqoriya:", selected_category)
         except ValueError:
             available = 0
 
-        # 6. Seçilmiş kateqoriyaya uyğunluq
+        # Seçilmiş kateqoriyaya uyğun deyilsə keç
         if not category_matches(
             selected_category,
             groups
@@ -208,11 +202,10 @@ print("Seçilmiş kateqoriya:", selected_category)
             available
         )
 
-        # 7. Boş yer yoxdursa mesaj göndərmə
+        # Boş yer yoxdursa bildiriş göndərmə
         if available <= 0:
             continue
 
-        # 8. Telegram mesajı
         message = (
             "🚨 DİM-də boş yer var!\n\n"
             f"📅 İmtahan: {exam_date}\n"
