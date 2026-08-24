@@ -28,20 +28,22 @@ def github_headers():
     }
 
 
-def load_settings():
-    url = (
+def github_file_url(filename):
+    return (
         f"https://api.github.com/repos/"
-        f"{GITHUB_REPOSITORY}/contents/{SETTINGS_FILE}"
+        f"{GITHUB_REPOSITORY}/contents/{filename}"
     )
 
+
+def load_github_file(filename):
     response = requests.get(
-        url,
+        github_file_url(filename),
         headers=github_headers(),
         timeout=30,
     )
 
     if response.status_code == 404:
-        return {}
+        return {}, None
 
     response.raise_for_status()
 
@@ -51,7 +53,7 @@ def load_settings():
         data["content"]
     ).decode("utf-8")
 
-    return json.loads(content)
+    return json.loads(content), data["sha"]
 
 
 def send_telegram(message):
@@ -81,21 +83,30 @@ def category_matches(selected_category, groups):
 
 def main():
 
-    # Telegram-da seçilmiş kateqoriyanı GitHub-dan oxuyuruq
-    settings = load_settings()
+    # Telegram-da seçilmiş kateqoriyanı oxuyuruq
+    settings, _ = load_github_file(
+        SETTINGS_FILE
+    )
 
     if not settings:
-        print("Heç bir Telegram kateqoriyası seçilməyib.")
+        print(
+            "Heç bir Telegram kateqoriyası seçilməyib."
+        )
         return
 
-    # Hazırda bir istifadəçi izlənilir.
-    # user_settings.json faylındakı ilk seçimi götürürük.
     user_id, selected_category = next(
         iter(settings.items())
     )
 
-    print("Telegram istifadəçi ID:", user_id)
-    print("Seçilmiş kateqoriya:", selected_category)
+    print(
+        "Telegram istifadəçi ID:",
+        user_id
+    )
+
+    print(
+        "Seçilmiş kateqoriya:",
+        selected_category
+    )
 
     # DİM səhifəsini yükləyirik
     response = requests.get(
@@ -104,14 +115,16 @@ def main():
         headers={
             "User-Agent": "Mozilla/5.0"
         },
-        verify=False
+        verify=False,
     )
 
-    print("Status:", response.status_code)
+    print(
+        "Status:",
+        response.status_code
+    )
 
     response.raise_for_status()
 
-    # HTML-i oxuyuruq
     soup = BeautifulSoup(
         response.text,
         "html.parser"
@@ -125,6 +138,8 @@ def main():
         "Tapılan imtahan sayı:",
         len(rows)
     )
+
+    matching_exams = []
 
     # Bütün imtahanları yoxlayırıq
     for row in rows:
@@ -193,37 +208,91 @@ def main():
         ):
             continue
 
-        print(
-            "Uyğun imtahan:",
-            exam_date,
-            "|",
-            groups,
-            "| Boş:",
-            available
-        )
+        matching_exams.append({
+            "exam_date": exam_date,
+            "registration_date": registration_date,
+            "last_date": last_date,
+            "capacity": capacity,
+            "registered": registered,
+            "available": available,
+            "location": location,
+            "groups": groups,
+            "registration": registration,
+        })
 
-        # Boş yer yoxdursa bildiriş göndərmə
-        if available <= 0:
-            continue
+    print(
+        "Seçilmiş kateqoriyaya uyğun imtahan sayı:",
+        len(matching_exams)
+    )
+
+    # Heç bir uyğun imtahan yoxdursa
+    if not matching_exams:
 
         message = (
-            "🚨 DİM-də boş yer var!\n\n"
-            f"📅 İmtahan: {exam_date}\n"
-            f"📌 Kateqoriya: {groups}\n"
-            f"🟢 Boş yer: {available}\n"
-            f"👥 Ümumi yer: {capacity}\n"
-            f"📝 Qeydiyyatda: {registered}\n\n"
-            f"📍 Ünvan:\n{location}\n\n"
-            f"⏰ Qeydiyyat: {registration_date}\n"
-            f"⛔ Son tarix: {last_date}\n\n"
-            f"🔗 Status: {registration}"
+            f"🔴 {selected_category} üzrə "
+            "hazırda uyğun imtahan tapılmadı."
         )
 
         send_telegram(message)
 
         print(
-            "Telegram bildirişi göndərildi."
+            "Telegram: uyğun imtahan yoxdur."
         )
+
+        return
+
+    # Uyğun imtahanları yoxlayırıq
+    has_available = False
+
+    message_lines = [
+        f"📊 {selected_category} üzrə DİM vəziyyəti",
+        ""
+    ]
+
+    for exam in matching_exams:
+
+        if exam["available"] > 0:
+            has_available = True
+
+            message_lines.extend([
+                "🟢 BOŞ YER VAR",
+                f"📅 {exam['exam_date']}",
+                f"👥 Qruplar: {exam['groups']}",
+                f"🟢 Boş yer: {exam['available']}",
+                f"👥 Ümumi yer: {exam['capacity']}",
+                f"📝 Qeydiyyatda: {exam['registered']}",
+                f"📍 {exam['location']}",
+                ""
+            ])
+
+    # Boş yer yoxdursa
+    if not has_available:
+
+        message = (
+            f"🔴 {selected_category} üzrə "
+            "hazırda boş yer yoxdur."
+        )
+
+        send_telegram(message)
+
+        print(
+            "Telegram: boş yer yoxdur."
+        )
+
+        return
+
+    # Boş yer olan imtahanların mesajını göndər
+    message_lines.append(
+        "⏰ DİM məlumatı avtomatik yoxlanıldı."
+    )
+
+    send_telegram(
+        "\n".join(message_lines)
+    )
+
+    print(
+        "Telegram: boş yer bildirişi göndərildi."
+    )
 
 
 if __name__ == "__main__":
