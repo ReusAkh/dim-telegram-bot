@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Repository-ni götür
+      - name: Repository-ni yüklə
         uses: actions/checkout@v4
 
       - name: Python qur
@@ -16,8 +16,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Requests quraşdır
-        run: pip install requests
+      - name: Lazım olan kitabxanaları quraşdır
+        run: pip install -r requirements.txt
 
-      - name: DİM səhifəsini yoxla
+      - name: DİM monitorunu işə sal
         run: python dim_monitor.py
