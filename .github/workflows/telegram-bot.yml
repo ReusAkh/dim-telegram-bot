@@ -1,7 +1,10 @@
-name: Telegram Bot Test
+name: Telegram Bot
 
 on:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   bot:
@@ -22,4 +25,6 @@ jobs:
       - name: Telegram botunu başlad
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: python telegram_bot.py
