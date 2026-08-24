@@ -89,20 +89,18 @@ def main():
         return
 
     # Hazırda TELEGRAM_CHAT_ID istifadə edirik
-    user_id = str(TELEGRAM_CHAT_ID)
+    if not settings:
+    print("Heç bir Telegram kateqoriyası seçilməyib.")
+    return
 
-    selected_category = settings.get(user_id)
+# Hazırda yalnız bir istifadəçi izlənir.
+# settings faylındakı ilk istifadəçinin seçimini götürürük.
+user_id, selected_category = next(
+    iter(settings.items())
+)
 
-    if not selected_category:
-        print(
-            "TELEGRAM_CHAT_ID üçün kateqoriya seçimi tapılmadı."
-        )
-        return
-
-    print(
-        "Seçilmiş kateqoriya:",
-        selected_category
-    )
+print("Telegram istifadəçi ID:", user_id)
+print("Seçilmiş kateqoriya:", selected_category)
 
     # 2. DİM səhifəsini götür
     response = requests.get(
