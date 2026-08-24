@@ -1,13 +1,15 @@
-name: Test DİM Monitor
+name: DİM Monitor
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  monitor:
     runs-on: ubuntu-latest
 
     steps:
