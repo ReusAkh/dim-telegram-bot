@@ -12,7 +12,6 @@ urllib3.disable_warnings(
 DIM_URL = "https://exidmet.dim.gov.az/dqq/ImtQeyd"
 
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 GITHUB_REPOSITORY = os.environ["GITHUB_REPOSITORY"]
@@ -56,7 +55,7 @@ def load_github_file(filename):
     return json.loads(content), data["sha"]
 
 
-def send_telegram(message):
+def send_telegram(chat_id, message):
     url = (
         f"https://api.telegram.org/bot"
         f"{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -65,7 +64,7 @@ def send_telegram(message):
     response = requests.post(
         url,
         json={
-            "chat_id": TELEGRAM_CHAT_ID,
+            "chat_id": chat_id,
             "text": message,
         },
         timeout=30,
@@ -83,32 +82,29 @@ def category_matches(selected_category, groups):
 
 def main():
 
-    # Telegram-da seçilmiş kateqoriyanı oxuyuruq
+    # =========================================================
+    # 1. Telegram istifadəçilərinin seçimlərini GitHub-dan oxuyuruq
+    # =========================================================
+
     settings, _ = load_github_file(
         SETTINGS_FILE
     )
 
     if not settings:
         print(
-            "Heç bir Telegram kateqoriyası seçilməyib."
+            "Heç bir Telegram istifadəçisi tapılmadı."
         )
         return
 
-    user_id, selected_category = next(
-        iter(settings.items())
-    )
-
     print(
-        "Telegram istifadəçi ID:",
-        user_id
+        "Telegram istifadəçi sayı:",
+        len(settings)
     )
 
-    print(
-        "Seçilmiş kateqoriya:",
-        selected_category
-    )
+    # =========================================================
+    # 2. DİM səhifəsini yükləyirik
+    # =========================================================
 
-    # DİM səhifəsini yükləyirik
     response = requests.get(
         DIM_URL,
         timeout=30,
@@ -139,9 +135,12 @@ def main():
         len(rows)
     )
 
-    matching_exams = []
+    # =========================================================
+    # 3. Bütün imtahan məlumatlarını toplayırıq
+    # =========================================================
 
-    # Bütün imtahanları yoxlayırıq
+    all_exams = []
+
     for row in rows:
 
         cells = row.find_all("td")
@@ -201,14 +200,7 @@ def main():
         except ValueError:
             available = 0
 
-        # Seçilmiş kateqoriyaya uyğun deyilsə keç
-        if not category_matches(
-            selected_category,
-            groups
-        ):
-            continue
-
-        matching_exams.append({
+        all_exams.append({
             "exam_date": exam_date,
             "registration_date": registration_date,
             "last_date": last_date,
@@ -221,78 +213,174 @@ def main():
         })
 
     print(
-        "Seçilmiş kateqoriyaya uyğun imtahan sayı:",
-        len(matching_exams)
+        "Toplanan imtahan məlumatı:",
+        len(all_exams)
     )
 
-    # Heç bir uyğun imtahan yoxdursa
-    if not matching_exams:
+    # =========================================================
+    # 4. HƏR İSTİFADƏÇİ ÜÇÜN ayrıca bildiriş hazırlayırıq
+    # =========================================================
 
-        message = (
-            f"🔴 {selected_category} üzrə "
-            "hazırda uyğun imtahan tapılmadı."
+    for user_id, selected_category in settings.items():
+
+        print()
+        print(
+            "----------------------------------------"
         )
-
-        send_telegram(message)
 
         print(
-            "Telegram: uyğun imtahan yoxdur."
+            "İstifadəçi:",
+            user_id
         )
-
-        return
-
-    # Uyğun imtahanları yoxlayırıq
-    has_available = False
-
-    message_lines = [
-        f"📊 {selected_category} üzrə DİM vəziyyəti",
-        ""
-    ]
-
-    for exam in matching_exams:
-
-        if exam["available"] > 0:
-            has_available = True
-
-            message_lines.extend([
-                "🟢 BOŞ YER VAR",
-                f"📅 {exam['exam_date']}",
-                f"👥 Qruplar: {exam['groups']}",
-                f"🟢 Boş yer: {exam['available']}",
-                f"👥 Ümumi yer: {exam['capacity']}",
-                f"📝 Qeydiyyatda: {exam['registered']}",
-                f"📍 {exam['location']}",
-                ""
-            ])
-
-    # Boş yer yoxdursa
-    if not has_available:
-
-        message = (
-            f"🔴 {selected_category} üzrə "
-            "hazırda boş yer yoxdur."
-        )
-
-        send_telegram(message)
 
         print(
-            "Telegram: boş yer yoxdur."
+            "Kateqoriya:",
+            selected_category
         )
 
-        return
+        # -----------------------------------------------------
+        # 4.1. Bu istifadəçinin kateqoriyasına uyğun imtahanlar
+        # -----------------------------------------------------
 
-    # Boş yer olan imtahanların mesajını göndər
-    message_lines.append(
-        "⏰ DİM məlumatı avtomatik yoxlanıldı."
-    )
+        matching_exams = []
 
-    send_telegram(
-        "\n".join(message_lines)
-    )
+        for exam in all_exams:
 
-    print(
-        "Telegram: boş yer bildirişi göndərildi."
-    )
+            if not category_matches(
+                selected_category,
+                exam["groups"]
+            ):
+                continue
+
+            matching_exams.append(
+                exam
+            )
+
+        print(
+            "Uyğun imtahan sayı:",
+            len(matching_exams)
+        )
+
+        # -----------------------------------------------------
+        # 4.2. Heç bir uyğun imtahan yoxdursa
+        # -----------------------------------------------------
+
+        if not matching_exams:
+
+            message = (
+                f"🔴 {selected_category} üzrə "
+                "hazırda uyğun imtahan tapılmadı."
+            )
+
+            try:
+                send_telegram(
+                    user_id,
+                    message
+                )
+
+                print(
+                    "Telegram: uyğun imtahan yoxdur."
+                )
+
+            except Exception as e:
+
+                print(
+                    "Telegram göndərmə xətası:",
+                    user_id,
+                    e
+                )
+
+            continue
+
+        # -----------------------------------------------------
+        # 4.3. Boş yerləri yoxlayırıq
+        # -----------------------------------------------------
+
+        has_available = False
+
+        message_lines = [
+            f"📊 {selected_category} üzrə DİM vəziyyəti",
+            ""
+        ]
+
+        for exam in matching_exams:
+
+            if exam["available"] > 0:
+
+                has_available = True
+
+                message_lines.extend([
+                    "🟢 BOŞ YER VAR",
+                    f"📅 {exam['exam_date']}",
+                    f"👥 Qruplar: {exam['groups']}",
+                    f"🟢 Boş yer: {exam['available']}",
+                    f"👥 Ümumi yer: {exam['capacity']}",
+                    f"📝 Qeydiyyatda: {exam['registered']}",
+                    f"📍 {exam['location']}",
+                    ""
+                ])
+
+        # -----------------------------------------------------
+        # 4.4. Boş yer yoxdursa
+        # -----------------------------------------------------
+
+        if not has_available:
+
+            message = (
+                f"🔴 {selected_category} üzrə "
+                "hazırda boş yer yoxdur."
+            )
+
+            try:
+                send_telegram(
+                    user_id,
+                    message
+                )
+
+                print(
+                    "Telegram: boş yer yoxdur."
+                )
+
+            except Exception as e:
+
+                print(
+                    "Telegram göndərmə xətası:",
+                    user_id,
+                    e
+                )
+
+            continue
+
+        # -----------------------------------------------------
+        # 4.5. Boş yer varsa bildiriş göndəririk
+        # -----------------------------------------------------
+
+        message_lines.append(
+            "⏰ DİM məlumatı avtomatik yoxlanıldı."
+        )
+
+        message = "\n".join(
+            message_lines
+        )
+
+        try:
+
+            send_telegram(
+                user_id,
+                message
+            )
+
+            print(
+                "Telegram: boş yer bildirişi göndərildi."
+            )
+
+        except Exception as e:
+
+            print(
+                "Telegram göndərmə xətası:",
+                user_id,
+                e
+            )
 
 
 if __name__ == "__main__":
